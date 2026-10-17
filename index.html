@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>body{margin:0}</style>
 <title>المحتال بيننا</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Reem+Kufi:wght@500;700&display=swap">
 <style>
 /* Layout: one centred column per phone. Each friend sees only their own card; the host's device drives the round. Zellige star lattice behind everything. */
@@ -195,7 +194,17 @@ input.txt.code{text-align:center;font:700 1.6rem var(--display);letter-spacing:.
 
 <div class="wrap" id="app"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
+/* ============================================================
+   إعداد Supabase: ضع بيانات مشروعك هنا ليعمل الرابط لكل أصدقائك دون إدخال شيء.
+   Project Settings ▸ API ▸ Project URL و anon public key
+   (يمكن تركهما فارغين وإدخالهما من داخل الصفحة).
+   لا تحتاج إنشاء أي جداول: اللعبة تعتمد Realtime Presence فقط.
+   ============================================================ */
+var SUPABASE_URL='';
+var SUPABASE_ANON_KEY='';
+
 (function(){
 'use strict';
 var AR='٠١٢٣٤٥٦٧٨٩';
@@ -314,7 +323,7 @@ function sync(){
   S.peers=S.NR.peers();S.ps=playersOf(S.peers);
   var best=null;
   S.peers.forEach(function(p){var g=p.presence&&p.presence.g;if(g&&typeof g==='object'&&typeof g.v==='number'&&(!best||g.v>best.v))best=g});
-  if(best)S.lastG=best;
+  if(best&&(!S.lastG||best.v>=S.lastG.v))S.lastG=best;
   S.G=S.lastG||INIT();
   var host=S.ps[0],mine=byU(me.u);
   S.amHost=!!host&&host.presence.u===me.u;
@@ -339,7 +348,7 @@ function enter(code){
     nr.presence({u:me.u,n:me.n,t:me.t}).catch(function(){});
     sync();
   }).catch(function(){
-    S.busy=false;S.err='تعذّر الدخول إلى الغرفة. تأكد أنك مسجّل الدخول إلى حسابك وأن صاحب الصفحة دعاك إليها.';render();
+    S.busy=false;S.err='تعذّر الاتصال بـ Supabase. تحقق من رابط المشروع والمفتاح، ومن اتصال الإنترنت.';render();
   });
 }
 function leave(){
@@ -368,7 +377,7 @@ function scoreRows(G,withDelta){
 
 function vHome(){
   var canRoom=S.ROOM!==undefined&&S.ROOM!==null;
-  var status=S.ROOM===undefined?'<div class="notice soft">جارٍ تجهيز الاتصال…</div>':(S.ROOM===null?'<div class="notice">اللعب الجماعي يحتاج أن تفتح الصفحة وأنت مسجّل الدخول إلى Claude ومدعوّ إليها. الروابط العامة لا تتيح الاتصال بين اللاعبين.</div>':'');
+  var status=S.libMissing?'<div class="notice">تعذّر تحميل مكتبة Supabase. تحقق من اتصال الإنترنت ثم أعد تحميل الصفحة.</div>':(S.ROOM===null?'<div class="notice">أدخل بيانات مشروع Supabase في الأسفل لتفعيل اللعب بين الأصدقاء.</div>':'');
   var sc=String(lsGet().code||'');
   var back=(/^\d{4}$/.test(sc)&&canRoom)?'<button class="btn ghost" data-act="rejoin" data-v="'+sc+'">العودة إلى الغرفة '+ar(sc)+'</button>':'';
   return '<div class="screen" id="scr">'+
@@ -379,6 +388,11 @@ function vHome(){
   '<button class="btn primary" data-act="create"'+(canRoom&&!S.busy?'':' disabled')+'>إنشاء غرفة جديدة</button></section>'+
   '<section class="panel"><div class="field"><label class="lbl" for="cd">أو انضم إلى غرفة صديق</label><input class="txt code" id="cd" value="'+esc(S.codeDraft)+'" maxlength="4" inputmode="numeric" placeholder="٠٠٠٠" autocomplete="off"></div>'+
   '<button class="btn" data-act="join"'+(canRoom&&!S.busy?'':' disabled')+'>انضمام</button>'+back+'</section>'+
+  '<details class="how"'+(S.ROOM===null&&!S.libMissing?' open':'')+'><summary>إعداد Supabase</summary><div class="in" style="display:flex;flex-direction:column;gap:10px">'+
+  '<p class="muted" style="font-size:.9rem">أنشئ مشروعًا مجانيًا في supabase.com، ثم انسخ <b>Project URL</b> و<b>anon public key</b> من Project Settings ▸ API. لا حاجة لإنشاء جداول، فاللعبة تستخدم Realtime Presence فقط. كل صديق يحتاج الإعداد نفسه، أو ضعه مرة واحدة في أعلى الملف.</p>'+
+  '<input class="txt" id="sbu" dir="ltr" placeholder="https://xxxx.supabase.co" value="'+esc((lsGet().sb||{}).url||'')+'" autocomplete="off">'+
+  '<input class="txt" id="sbk" dir="ltr" placeholder="anon public key" value="'+esc((lsGet().sb||{}).key||'')+'" autocomplete="off">'+
+  '<button class="btn" data-act="saveCfg">حفظ الإعدادات</button></div></details>'+
   '<details class="how"><summary>كيف تلعبون؟</summary><div class="in"><ol>'+
   '<li>أحدكم ينشئ غرفة ويرسل الرمز للأصدقاء، فيدخلون من هواتفهم.</li>'+
   '<li>كل لاعب يرى بطاقته وحده: الكلمة السرية، أو «أنت المحتال».</li>'+
@@ -393,8 +407,8 @@ function vLobby(){
   var chips=CATS.map(function(c,i){var on=!!(cf.m&(1<<i));return S.amHost?'<button class="chip" data-act="cat" data-i="'+i+'" aria-pressed="'+on+'">'+c.name+'</button>':(on?'<span class="chip static" aria-pressed="true">'+c.name+'</span>':'')}).join('');
   var rules;
   if(S.amHost){
-    var maxI=n>=5?2:1;if(cf.i>maxI)cf.i=maxI;
-    rules='<div class="field"><span class="lbl">عدد المحتالين</span>'+seg('cfi',cf.i,[[1,'محتال واحد'],[2,'محتالان',n<5]])+(n<5?'<span class="muted" style="font-size:.78rem">المحتالان يحتاجان خمسة لاعبين على الأقل</span>':'')+'</div>'+
+    var maxI=n>=5?2:1,ci=Math.min(cf.i,maxI);
+    rules='<div class="field"><span class="lbl">عدد المحتالين</span>'+seg('cfi',ci,[[1,'محتال واحد'],[2,'محتالان',n<5]])+(n<5?'<span class="muted" style="font-size:.78rem">المحتالان يحتاجان خمسة لاعبين على الأقل</span>':'')+'</div>'+
     '<div class="field"><span class="lbl">مدة النقاش</span>'+seg('cft',cf.t,[[2,ar(2)+' د'],[3,ar(3)+' د'],[5,ar(5)+' د'],[0,'بلا مؤقت']])+'</div>'+
     '<button class="switch" role="switch" aria-checked="'+(!!cf.h)+'" data-act="cfh"><span>يرى المحتال اسم الفئة<br><small class="muted">يسهّل عليه الاندماج</small></span><span class="track"></span></button>';
   }else{
@@ -547,12 +561,17 @@ function render(){
 /* ---------- actions ---------- */
 function cfEdit(fn){T(function(d){fn(d.cf);S.cfd=clone(d.cf);lsSet({cf:d.cf})})}
 var ACT={
+  saveCfg:function(){
+    var u=(document.getElementById('sbu').value||'').trim().replace(/\/+$/,''),k=(document.getElementById('sbk').value||'').trim();
+    if(!/^https:\/\/[^\s]+$/.test(u)||k.length<=20){S.err='الرابط أو المفتاح غير صحيح.';render();return}
+    lsSet({sb:{url:u,key:k}});S.err='';initBackend();render();
+  },
   create:function(){if(!me.n.trim()){S.err='اكتب اسمك أولًا.';render();return}enter(newCode())},
   join:function(){var c=unar(S.codeDraft);if(!me.n.trim()){S.err='اكتب اسمك أولًا.';render();return}if(c.length!==4){S.err='رمز الغرفة أربعة أرقام.';render();return}enter(c)},
   rejoin:function(v){enter(v)},
   leave:leave,
   copy:function(){
-    var txt='تعال نلعب «المحتال بيننا»! افتح الصفحة وادخل رمز الغرفة: '+S.code;
+    var txt='تعال نلعب «المحتال بيننا»! افتح الرابط وادخل رمز الغرفة: '+S.code;
     var ok=function(){S.note='تم نسخ الدعوة.';render()},no=function(){S.note='انسخ الرمز يدويًا: '+ar(S.code);render()};
     try{navigator.clipboard.writeText(txt).then(ok,no)}catch(e){no()}
   },
@@ -609,11 +628,53 @@ document.addEventListener('input',function(e){
   if(el.id==='cd'){S.codeDraft=unar(el.value).slice(0,4);el.value=S.codeDraft}
 });
 
+/* ---------- Supabase Realtime adapter (presence channel per room) ---------- */
+function joinChannel(sb,name){
+  return new Promise(function(resolve,reject){
+    var ch=sb.channel(name,{config:{presence:{key:me.u}}});
+    var st={},hs=[],ch_h=[],conn=false,timer=null,done=false,left=false,pend=false;
+    function notify(){if(pend||left)return;pend=true;setTimeout(function(){pend=false;hs.slice().forEach(function(f){try{f()}catch(e){}})},0)}
+    function flush(){timer=null;if(left||!conn)return;try{ch.track(JSON.parse(JSON.stringify(st)))}catch(e){}}
+    var nr={
+      presence:function(patch){
+        Object.keys(patch).forEach(function(k){if(patch[k]===null)delete st[k];else st[k]=patch[k]});
+        if(!timer)timer=setTimeout(flush,120);notify();return Promise.resolve();
+      },
+      peers:function(){
+        var ps=ch.presenceState(),out=[];
+        Object.keys(ps).forEach(function(k){if(k===me.u)return;(ps[k]||[]).forEach(function(m){var p={};Object.keys(m).forEach(function(x){if(x!=='presence_ref')p[x]=m[x]});out.push({kind:'viewer',presence:p,isMe:false,peer:k})})});
+        if(st.u)out.push({kind:'viewer',presence:st,isMe:true,peer:me.u});
+        return out;
+      },
+      onPeers:function(f){hs.push(f);setTimeout(f,0);return function(){hs=hs.filter(function(x){return x!==f})}},
+      onConnection:function(f){ch_h.push(f);setTimeout(function(){f(conn)},0);return function(){ch_h=ch_h.filter(function(x){return x!==f})}},
+      leave:function(){left=true;clearTimeout(timer);try{sb.removeChannel(ch)}catch(e){}return Promise.resolve()}
+    };
+    ch.on('presence',{event:'sync'},notify).subscribe(function(status){
+      if(status==='SUBSCRIBED'){conn=true;ch_h.forEach(function(f){f(true)});flush();if(!done){done=true;resolve(nr)}}
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){conn=false;ch_h.forEach(function(f){f(false)});if(!done){done=true;reject(new Error(status))}}
+    });
+    setTimeout(function(){if(!done){done=true;reject(new Error('timeout'))}},10000);
+  });
+}
+function getCfg(){
+  var u=(SUPABASE_URL||'').trim(),k=(SUPABASE_ANON_KEY||'').trim();
+  if(!u||!k){var c=lsGet().sb;if(c&&c.url&&c.key){u=String(c.url).trim();k=String(c.key).trim()}}
+  return (/^https:\/\/[^\s]+$/.test(u)&&k.length>20)?{url:u,key:k}:null;
+}
+var SB=null;
+function initBackend(){
+  S.libMissing=false;
+  var cfg=getCfg();
+  if(!window.supabase||!window.supabase.createClient){S.libMissing=true;S.ROOM=null;return}
+  if(!cfg){S.ROOM=null;return}
+  try{
+    SB=window.supabase.createClient(cfg.url,cfg.key,{realtime:{params:{eventsPerSecond:20}}});
+    S.ROOM={join:function(name){return joinChannel(SB,name)}};
+  }catch(e){S.ROOM=null;S.err='إعدادات Supabase غير صالحة.'}
+}
+initBackend();
 render();
-try{
-  var p=(window.claude&&window.claude.use)?window.claude.use('room'):Promise.resolve(null);
-  p.then(function(r){S.ROOM=r||null;if(S.view==='home')render()},function(){S.ROOM=null;if(S.view==='home')render()});
-}catch(e){S.ROOM=null;render()}
 })();
 </script>
 
